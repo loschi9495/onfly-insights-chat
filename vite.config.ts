@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => ({
       "/ask": "http://localhost:8080",
       "/reset": "http://localhost:8080",
       "/suggestions": "http://localhost:8080",
+      "/templates": "http://localhost:8080",
       "/health": "http://localhost:8080",
       "/download": "http://localhost:8080",
     },

@@ -4,7 +4,8 @@ import { ChatMessage } from "@/components/ChatMessage";
 import { ChatInput } from "@/components/ChatInput";
 import { TypingIndicator } from "@/components/TypingIndicator";
 import { SuggestionsGrid } from "@/components/SuggestionsGrid";
-import { askQuestion, resetSession } from "@/lib/api";
+import { TemplatesGrid } from "@/components/TemplatesGrid";
+import { askQuestionStream } from "@/lib/api";
 import { Menu } from "lucide-react";
 import {
   type Conversation,
@@ -20,8 +21,11 @@ export default function Index() {
   });
   const [activeId, setActiveId] = useState(() => conversations[0]?.id ?? "");
   const [loading, setLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
+  const [streamingText, setStreamingText] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const active = conversations.find((c) => c.id === activeId);
 
@@ -47,38 +51,60 @@ export default function Index() {
     }));
 
     setLoading(true);
+    setStatusMessage("Analisando...");
+    setStreamingText("");
     scrollToBottom();
 
-    try {
-      const data = await askQuestion(question, activeId);
-      updateConversation(activeId, (c) => ({
-        ...c,
-        messages: [...c.messages, { role: "agent", content: data.answer, follow_ups: data.follow_ups || [] }],
-      }));
-    } catch {
-      updateConversation(activeId, (c) => ({
-        ...c,
-        messages: [
-          ...c.messages,
-          {
-            role: "agent",
-            content: "Desculpe, ocorreu um erro ao consultar os dados. Tente reformular sua pergunta.",
-          },
-        ],
-      }));
-    } finally {
-      setLoading(false);
-      scrollToBottom();
-    }
+    let fullText = "";
+
+    abortRef.current = askQuestionStream(
+      question,
+      activeId,
+      (status) => {
+        setStatusMessage(status);
+        scrollToBottom();
+      },
+      (chunk) => {
+        fullText += chunk;
+        setStreamingText(fullText);
+        scrollToBottom();
+      },
+      () => {
+        // Done - save full message
+        updateConversation(activeId, (c) => ({
+          ...c,
+          messages: [...c.messages, { role: "agent", content: fullText }],
+        }));
+        setLoading(false);
+        setStreamingText("");
+        setStatusMessage("");
+        scrollToBottom();
+      },
+      (error) => {
+        updateConversation(activeId, (c) => ({
+          ...c,
+          messages: [
+            ...c.messages,
+            { role: "agent", content: error || "Desculpe, ocorreu um erro ao consultar os dados." },
+          ],
+        }));
+        setLoading(false);
+        setStreamingText("");
+        setStatusMessage("");
+      },
+    );
   };
 
   const handleNew = async () => {
-    if (active) {
-      resetSession(active.id).catch(() => {});
-    }
+    if (abortRef.current) abortRef.current.abort();
+    const { resetSession } = await import("@/lib/api");
+    if (active) resetSession(active.id).catch(() => {});
     const newConvo = createConversation();
     setConversations((prev) => [newConvo, ...prev]);
     setActiveId(newConvo.id);
+    setLoading(false);
+    setStreamingText("");
+    setStatusMessage("");
   };
 
   const handleDelete = (id: string) => {
@@ -97,7 +123,6 @@ export default function Index() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Mobile sidebar toggle */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
         className="md:hidden fixed top-3 left-3 z-50 p-2 rounded-lg bg-card border border-border"
@@ -105,7 +130,6 @@ export default function Index() {
         <Menu className="w-5 h-5" />
       </button>
 
-      {/* Sidebar */}
       <div className={`${sidebarOpen ? "flex" : "hidden"} md:flex absolute md:relative z-40 h-full`}>
         <ChatSidebar
           conversations={conversations}
@@ -116,16 +140,19 @@ export default function Index() {
         />
       </div>
 
-      {/* Overlay for mobile */}
       {sidebarOpen && (
         <div className="md:hidden fixed inset-0 z-30 bg-background/60" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0">
         {active && active.messages.length === 0 && !loading ? (
           <>
-            <SuggestionsGrid onSelect={handleSend} />
+            <div className="flex-1 overflow-y-auto px-4 py-6">
+              <div className="max-w-2xl mx-auto">
+                <SuggestionsGrid onSelect={handleSend} />
+                <TemplatesGrid onSelect={handleSend} />
+              </div>
+            </div>
             <ChatInput onSend={handleSend} disabled={loading} />
           </>
         ) : (
@@ -133,9 +160,14 @@ export default function Index() {
             <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6">
               <div className="max-w-3xl mx-auto">
                 {active?.messages.map((m, i) => (
-                  <ChatMessage key={i} message={m} onFollowUp={handleSend} isLast={i === (active?.messages.length ?? 0) - 1} />
+                  <ChatMessage key={i} message={m} onFollowUp={handleSend} isLast={!loading && i === (active?.messages.length ?? 0) - 1} />
                 ))}
-                {loading && <TypingIndicator />}
+                {loading && streamingText && (
+                  <ChatMessage message={{ role: "agent", content: streamingText }} />
+                )}
+                {loading && !streamingText && (
+                  <TypingIndicator message={statusMessage} />
+                )}
               </div>
             </div>
             <ChatInput onSend={handleSend} disabled={loading} />
