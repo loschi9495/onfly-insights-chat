@@ -3,6 +3,7 @@ import remarkGfm from "remark-gfm";
 import { Copy, Check, Download, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import type { Message } from "@/lib/conversations";
+import { ChartBlock, tryParseChart } from "./ChartBlock";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 
@@ -55,6 +56,26 @@ export function ChatMessage({ message, onFollowUp, isLast }: Props) {
                 }
                 return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
               },
+              code: ({ className, children }) => {
+                const isChart = className === "language-chart";
+                if (isChart) {
+                  const chartConfig = tryParseChart(String(children).trim());
+                  if (chartConfig) {
+                    return <ChartBlock config={chartConfig} />;
+                  }
+                }
+                // Inline code
+                if (!className) {
+                  return <code className="px-1.5 py-0.5 rounded bg-secondary text-xs">{children}</code>;
+                }
+                // Code block (non-chart)
+                return (
+                  <code className={`block p-3 rounded-lg bg-secondary text-xs overflow-x-auto ${className || ""}`}>
+                    {children}
+                  </code>
+                );
+              },
+              pre: ({ children }) => <>{children}</>,
             }}
           >
             {message.content}
