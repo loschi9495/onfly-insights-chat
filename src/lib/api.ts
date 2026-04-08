@@ -1,6 +1,5 @@
 import { getAuthHeaders, clearUser, refreshToken } from "./auth";
-
-const API_URL = import.meta.env.VITE_API_URL || "";
+import { API_URL } from "./config";
 
 async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const headers = { ...getAuthHeaders(), ...(options.headers || {}) };

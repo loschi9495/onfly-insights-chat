@@ -10,8 +10,9 @@ interface StoredAuth {
   refresh_token: string;
 }
 
+import { API_URL } from "./config";
+
 const STORAGE_KEY = "onfly_insights_auth";
-const API_URL = import.meta.env.VITE_API_URL || "";
 
 export function getStoredAuth(): StoredAuth | null {
   try {

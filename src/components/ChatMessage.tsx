@@ -4,8 +4,7 @@ import { Copy, Check, Download, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import type { Message } from "@/lib/conversations";
 import { ChartBlock, tryParseChart } from "./ChartBlock";
-
-const API_URL = import.meta.env.VITE_API_URL || "";
+import { API_URL } from "@/lib/config";
 
 interface Props {
   message: Message;
