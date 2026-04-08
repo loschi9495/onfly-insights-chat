@@ -16,6 +16,7 @@ declare global {
   }
 }
 
+const API_URL = import.meta.env.VITE_API_URL || "";
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 
 export default function Login() {
@@ -30,6 +31,22 @@ export default function Login() {
       return;
     }
 
+    // Check if auth bypass is active
+    fetch(`${API_URL}/auth/bypass-status`)
+      .then((r) => r.json())
+      .then(async (data) => {
+        if (data.bypass) {
+          const userData = await loginWithGoogle("bypass");
+          storeUser({ ...userData, credential: "bypass" });
+          navigate("/", { replace: true });
+          return;
+        }
+        loadGoogleButton();
+      })
+      .catch(() => loadGoogleButton());
+  }, []);
+
+  const loadGoogleButton = () => {
     const script = document.createElement("script");
     script.src = "https://accounts.google.com/gsi/client";
     script.async = true;
@@ -49,11 +66,7 @@ export default function Login() {
       }
     };
     document.body.appendChild(script);
-
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
+  };
 
   const handleGoogleResponse = async (response: { credential: string }) => {
     setLoading(true);
