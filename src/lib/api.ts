@@ -1,18 +1,31 @@
-import { getAuthHeaders, clearUser } from "./auth";
+import { getAuthHeaders, clearUser, refreshToken } from "./auth";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 
 async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  const headers = {
-    ...getAuthHeaders(),
-    ...(options.headers || {}),
-  };
-  const res = await fetch(url, { ...options, headers });
+  const headers = { ...getAuthHeaders(), ...(options.headers || {}) };
+  let res = await fetch(url, { ...options, headers });
+
+  // Auto-refresh on 401 TOKEN_EXPIRED
   if (res.status === 401) {
-    clearUser();
-    window.location.href = "/login";
-    throw new Error("Sessão expirada");
+    const body = await res.json().catch(() => ({}));
+    if (body.code === "TOKEN_EXPIRED") {
+      const refreshed = await refreshToken();
+      if (refreshed) {
+        const retryHeaders = { ...getAuthHeaders(), ...(options.headers || {}) };
+        res = await fetch(url, { ...options, headers: retryHeaders });
+      } else {
+        clearUser();
+        window.location.href = "/login";
+        throw new Error("Sessão expirada");
+      }
+    } else {
+      clearUser();
+      window.location.href = "/login";
+      throw new Error("Não autorizado");
+    }
   }
+
   return res;
 }
 
@@ -22,9 +35,7 @@ export async function askQuestion(question: string, sessionId: string): Promise<
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ question, session_id: sessionId }),
   });
-  if (!res.ok) {
-    throw new Error("Erro ao consultar dados");
-  }
+  if (!res.ok) throw new Error("Erro ao consultar dados");
   return res.json();
 }
 
@@ -99,38 +110,26 @@ export function askQuestionStream(
     signal: controller.signal,
   }).then(async (res) => {
     if (res.status === 401) {
-      clearUser();
-      window.location.href = "/login";
-      return;
-    }
-    if (!res.ok || !res.body) {
-      onError("Erro ao consultar dados");
-      return;
-    }
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        try {
-          const event = JSON.parse(line.slice(6));
-          if (event.type === "status") onStatus(event.content);
-          else if (event.type === "text") onText(event.content);
-          else if (event.type === "done") onDone();
-          else if (event.type === "error") onError(event.content);
-        } catch { /* skip malformed */ }
+      const refreshed = await refreshToken();
+      if (refreshed) {
+        // Retry with new token
+        const retryHeaders = getAuthHeaders();
+        const retryRes = await fetch(`${API_URL}/ask/stream`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...retryHeaders },
+          body: JSON.stringify({ question, session_id: sessionId }),
+          signal: controller.signal,
+        });
+        if (!retryRes.ok || !retryRes.body) { onError("Erro ao consultar dados"); return; }
+        await processStream(retryRes, onStatus, onText, onDone, onError);
+      } else {
+        clearUser();
+        window.location.href = "/login";
       }
+      return;
     }
+    if (!res.ok || !res.body) { onError("Erro ao consultar dados"); return; }
+    await processStream(res, onStatus, onText, onDone, onError);
   }).catch((err) => {
     if (err.name !== "AbortError") onError("Erro de conexão");
   });
@@ -138,15 +137,45 @@ export function askQuestionStream(
   return controller;
 }
 
-export async function loginWithGoogle(credential: string): Promise<{ email: string; name: string; picture: string }> {
+async function processStream(
+  res: Response,
+  onStatus: (msg: string) => void,
+  onText: (chunk: string) => void,
+  onDone: () => void,
+  onError: (msg: string) => void,
+) {
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      try {
+        const event = JSON.parse(line.slice(6));
+        if (event.type === "status") onStatus(event.content);
+        else if (event.type === "text") onText(event.content);
+        else if (event.type === "done") onDone();
+        else if (event.type === "error") onError(event.content);
+      } catch { /* skip */ }
+    }
+  }
+}
+
+export async function loginWithGoogle(credential: string): Promise<{ access_token: string; refresh_token: string; expires_in: string; user: { email: string; name: string; picture: string } }> {
   const res = await fetch(`${API_URL}/auth/google`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ credential }),
   });
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ detail: "Erro ao autenticar" }));
-    throw new Error(error.detail || "Erro ao autenticar");
+    const error = await res.json().catch(() => ({ error: "Erro ao autenticar" }));
+    throw new Error(error.error || error.detail || "Erro ao autenticar");
   }
   return res.json();
 }

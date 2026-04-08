@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { loginWithGoogle } from "@/lib/api";
-import { storeUser, getStoredUser } from "@/lib/auth";
+import { storeAuth, getStoredUser } from "@/lib/auth";
 
 declare global {
   interface Window {
@@ -36,8 +36,12 @@ export default function Login() {
       .then((r) => r.json())
       .then(async (data) => {
         if (data.bypass) {
-          const userData = await loginWithGoogle("bypass");
-          storeUser({ ...userData, credential: "bypass" });
+          const authData = await loginWithGoogle("bypass");
+          storeAuth({
+            user: authData.user,
+            access_token: authData.access_token,
+            refresh_token: authData.refresh_token,
+          });
           navigate("/", { replace: true });
           return;
         }
@@ -72,10 +76,11 @@ export default function Login() {
     setLoading(true);
     setError("");
     try {
-      const userData = await loginWithGoogle(response.credential);
-      storeUser({
-        ...userData,
-        credential: response.credential,
+      const data = await loginWithGoogle(response.credential);
+      storeAuth({
+        user: data.user,
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
       });
       navigate("/", { replace: true });
     } catch (e: unknown) {
