@@ -1,0 +1,144 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    --background: 220 20% 10%;
+    --foreground: 210 20% 92%;
+
+    --card: 220 18% 14%;
+    --card-foreground: 210 20% 92%;
+
+    --popover: 220 18% 14%;
+    --popover-foreground: 210 20% 92%;
+
+    --primary: 210 100% 35%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 16% 18%;
+    --secondary-foreground: 210 20% 85%;
+
+    --muted: 220 14% 16%;
+    --muted-foreground: 215 15% 55%;
+
+    --accent: 210 100% 35%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 14% 20%;
+    --input: 220 14% 20%;
+    --ring: 210 100% 35%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 220 22% 8%;
+    --sidebar-foreground: 210 15% 75%;
+    --sidebar-primary: 210 100% 35%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 18% 14%;
+    --sidebar-accent-foreground: 210 20% 92%;
+    --sidebar-border: 220 14% 16%;
+    --sidebar-ring: 210 100% 35%;
+
+    --user-bubble: 210 100% 35%;
+    --user-bubble-foreground: 0 0% 100%;
+    --agent-bubble: 220 16% 16%;
+    --agent-bubble-foreground: 210 20% 90%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+/* Markdown table styling */
+.markdown-content table {
+  @apply w-full border-collapse my-3 text-sm;
+}
+
+.markdown-content th {
+  @apply bg-secondary/60 px-3 py-2 text-left font-semibold border-b border-border text-foreground;
+}
+
+.markdown-content td {
+  @apply px-3 py-2 border-b border-border/50;
+}
+
+.markdown-content tr:hover td {
+  @apply bg-secondary/30;
+}
+
+.markdown-content h1 {
+  @apply text-lg font-bold mb-2 text-foreground;
+}
+
+.markdown-content h2 {
+  @apply text-base font-semibold mb-2 text-foreground;
+}
+
+.markdown-content h3 {
+  @apply text-sm font-semibold mb-1 text-foreground;
+}
+
+.markdown-content p {
+  @apply mb-2 leading-relaxed;
+}
+
+.markdown-content strong {
+  @apply font-semibold text-foreground;
+}
+
+.markdown-content ul, .markdown-content ol {
+  @apply ml-4 mb-2;
+}
+
+.markdown-content li {
+  @apply mb-1;
+}
+
+.markdown-content ul li {
+  @apply list-disc;
+}
+
+.markdown-content ol li {
+  @apply list-decimal;
+}
+
+/* Typing animation */
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0; }
+  40% { opacity: 1; }
+}
+
+.typing-dot {
+  @apply inline-block w-2 h-2 rounded-full bg-primary mx-0.5;
+  animation: blink 1.4s infinite both;
+}
+
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-border rounded-full;
+}
