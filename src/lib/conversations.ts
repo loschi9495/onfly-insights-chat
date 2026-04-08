@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 export interface Message {
   role: "user" | "agent";
   content: string;
+  follow_ups?: string[];
 }
 
 export interface Conversation {

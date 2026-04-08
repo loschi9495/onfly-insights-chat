@@ -16,7 +16,7 @@ async function authFetch(url: string, options: RequestInit = {}): Promise<Respon
   return res;
 }
 
-export async function askQuestion(question: string, sessionId: string): Promise<{ answer: string; session_id: string }> {
+export async function askQuestion(question: string, sessionId: string): Promise<{ answer: string; session_id: string; follow_ups: string[] }> {
   const res = await authFetch(`${API_URL}/ask`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

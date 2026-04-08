@@ -53,7 +53,7 @@ export default function Index() {
       const data = await askQuestion(question, activeId);
       updateConversation(activeId, (c) => ({
         ...c,
-        messages: [...c.messages, { role: "agent", content: data.answer }],
+        messages: [...c.messages, { role: "agent", content: data.answer, follow_ups: data.follow_ups || [] }],
       }));
     } catch {
       updateConversation(activeId, (c) => ({
@@ -133,7 +133,7 @@ export default function Index() {
             <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6">
               <div className="max-w-3xl mx-auto">
                 {active?.messages.map((m, i) => (
-                  <ChatMessage key={i} message={m} />
+                  <ChatMessage key={i} message={m} onFollowUp={handleSend} isLast={i === (active?.messages.length ?? 0) - 1} />
                 ))}
                 {loading && <TypingIndicator />}
               </div>
